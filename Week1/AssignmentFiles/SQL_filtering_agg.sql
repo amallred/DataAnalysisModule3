@@ -85,8 +85,16 @@ order by store_id asc;
 
 -- Q11) Among PAID orders, what percent used 'app' as the payment_method?
 --      Return a single row with pct_app_paid_orders (0–100).
+select 100*sum(payment_method = 'app')/count(*) as pct_app_paid_orders
+from orders
+where status = 'paid';
+	-- Reference: https://stackoverflow.com/questions/24682734/percentage-of-rows-that-match-condition
 
 -- Q12) Busiest hour: for PAID orders, show (hour_of_day, orders_count) sorted desc.
-
+select hour(order_datetime) as hour_of_day, count(order_id) as orders_count
+from orders
+where status = 'paid'
+group by hour_of_day
+order by orders_count desc;
 
 -- ================
