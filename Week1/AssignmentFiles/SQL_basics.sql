@@ -25,16 +25,13 @@ SELECT name, city, state FROM stores;
 -- Q7) From orders, show order_id, status, and a computed column total_items
 --     that counts how many items are in each order.
 
--- ALTER TABLE orders ADD COLUMN total_items TINYINT UNSIGNED NOT NULL DEFAULT 0;
--- UPDATE orders o1
--- JOIN order_items o2 ON o1.order_id = o2.order_id
--- SET o1.total_items = o2.quantity;
--- SELECT order_id, status, total_items FROM orders;
--- select * from orders;
+ALTER TABLE orders ADD COLUMN total_items TINYINT UNSIGNED NOT NULL DEFAULT 0;
+UPDATE orders o1
+JOIN order_items o2 ON o1.order_id = o2.order_id
+SET o1.total_items = o2.quantity;
+SELECT order_id, status, total_items FROM orders;
 
 -- Reference: https://stackoverflow.com/questions/27376152/how-to-add-a-column-to-a-table-from-another-table-in-mysql 
-
-	^^^ YOU NEED TO FINISH THIS ONE, AMANDA ^^^
 
 -- Q8) Show orders placed on '2025-09-04' (any time that day).
 SELECT * FROM orders where order_datetime like '%2025-09-04%';
