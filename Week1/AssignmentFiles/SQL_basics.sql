@@ -25,12 +25,18 @@ SELECT name, city, state FROM stores;
 -- Q7) From orders, show order_id, status, and a computed column total_items
 --     that counts how many items are in each order.
 
-ALTER TABLE orders ADD COLUMN total_items TINYINT UNSIGNED NOT NULL DEFAULT 0;
+-- ALTER TABLE orders ADD COLUMN total_items TINYINT UNSIGNED NOT NULL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN total_items TINYINT;
 UPDATE orders o1
 JOIN order_items o2 ON o1.order_id = o2.order_id
 SET o1.total_items = o2.quantity;
 SELECT order_id, status, total_items FROM orders;
 
+-- The following solution is from a classmate after we discussed resourses and ideas. It works correctly and mine does not. I aim to make mine work without outright copying theirs. For now, I need to step away.
+-- select o.order_id, o.status, sum(oi.quantity) as total_items from orders o
+-- join order_items oi on o.order_id = oi.order_id
+-- group by o.order_id, o.status;
+-- select * from order_items;
 -- Reference: https://stackoverflow.com/questions/27376152/how-to-add-a-column-to-a-table-from-another-table-in-mysql 
 
 -- Q8) Show orders placed on '2025-09-04' (any time that day).
