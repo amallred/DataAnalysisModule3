@@ -6,20 +6,67 @@ USE coffeeshop_db;
 
 -- Q1) Join products to categories: list product_name, category_name, price.
 
+select p.name as product_name, c.name as category_name, price
+from products p
+inner join categories c
+	on p.category_id = c.category_id;
+    
 -- Q2) For each order item, show: order_id, order_datetime, store_name,
 --     product_name, quantity, line_total (= quantity * products.price).
 --     Sort by order_datetime, then order_id.
 
+	-- 	Joining orders and order_items
+select o.order_id as order_id, 
+		o.order_datetime as order_datetime, 
+		(select name from stores s where o.store_id = s.store_id) as store_name, 
+        (select name from products p where oi.product_id = p.product_id)as product_name, 
+        oi.quantity as quantity, 
+        quantity * (select price from products p where oi.product_id = p.product_id) as line_total
+from orders o
+left join order_items oi
+	on o.order_id = oi.order_id;
+    
 -- Q3) Customer order history (PAID only):
 --     For each order, show customer_name, store_name, order_datetime,
 --     order_total (= SUM(quantity * products.price) per order).
 
+	-- Joining from orders and order_items
+    select concat(c.last_name, ', ',c.first_name)as customer_name, -- combine first and last names from customers
+			s.name as store_name, -- store.name matches store_id
+            o.order_datetime,  
+            sum(oi.quantity * p.price) as order_total -- sum (oi quantity * p.price)
+	from orders o
+    inner join order_items oi 
+		on o.order_id = oi.order_id
+        and o.status = 'paid'
+	left join customers c
+		on o.customer_id = c.customer_id
+	left join stores s
+		on o.store_id = s.store_id
+	left join products p
+		on oi.product_id = p.product_id
+	group by o.order_id;
+	-- I originally had a lot of subqueries, but found that you can have multiple joins, so I restructured it as seen above.
+
 -- Q4) Left join to find customers who have never placed an order.
 --     Return first_name, last_name, city, state.
+
+select c.first_name as first_name,
+	c.last_name as last_name,
+    c.city as city,
+    c.state as state
+from customers c 
+left join orders o
+	on c.customer_id = o.customer_id
+where o.order_id is null;
+
+	-- TO THE TEACHER: I'm actually pretty confident about this one, but the table is empty. What am I missing?
 
 -- Q5) For each store, list the top-selling product by units (PAID only).
 --     Return store_name, product_name, total_units.
 --     Hint: Use a window function (ROW_NUMBER PARTITION BY store) or a correlated subquery.
+
+
 
 -- Q6) Inventory check: show rows where on_hand < 12 in any store.
 --     Return store_name, product_name, on_hand.
