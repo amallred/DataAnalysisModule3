@@ -60,26 +60,109 @@ left join orders o
 	on c.customer_id = o.customer_id
 where o.order_id is null;
 
-	-- TO THE TEACHER: I'm actually pretty confident about this one, but the table is empty. What am I missing?
+	-- TO THE TEACHER: I'm actually pretty confident about this one, but the table is empty. Am I missing something?
 
 -- Q5) For each store, list the top-selling product by units (PAID only).
 --     Return store_name, product_name, total_units.
 --     Hint: Use a window function (ROW_NUMBER PARTITION BY store) or a correlated subquery.
+select store_name, product_name, total_units from 
+(select s.name as store_name,
+		p.name as product_name,
+        sum(oi.quantity) as total_units, -- chatgpt helped here; grouping had to happen before the window function
+       row_number() over (
+			partition by s.name
+            order by s.name, sum(oi.quantity) desc
+		) as ranked_item
+from orders o
+left join order_items oi
+	on o.order_id = oi.order_id 
+left join products p 
+	on oi.product_id = p.product_id
+left join stores s 
+	on o.store_id = s.store_id
+where o.status = 'paid'
+group by s.name, p.name
+) as ranked
+where ranked_item = 1;
 
-
+-- DISCLAIMER: I used chatgpt to help figure out the row_number() logic
+-- other reference: https://stackoverflow.com/questions/48133947/sql-select-most-popular-items-in-each-store
 
 -- Q6) Inventory check: show rows where on_hand < 12 in any store.
 --     Return store_name, product_name, on_hand.
 
+select s.name as store_name,
+		p.name as product_name,
+        i.on_hand as on_hand
+from inventory i
+left join stores s
+	on i.store_id = s.store_id
+left join products p
+	on i.product_id = p.product_id
+where i.on_hand < 12;
+
 -- Q7) Manager roster: list each store's manager_name and hire_date.
 --     (Assume title = 'Manager').
 
+select s.name as store,
+		concat(e.last_name, ', ', e.first_name) as manager_name,
+		e.hire_date
+from employees e
+left join stores s
+	on e.store_id = s.store_id
+where e.title = 'Manager';
+
 -- Q8) Using a subquery/CTE: list products whose total PAID revenue is above
 --     the average PAID product revenue. Return product_name, total_revenue.
+
+with item_revenue as (
+	select 
+		p.name as product_name,
+        sum(oi.quantity * p.price) as total_revenue
+	from order_items oi
+    left join products p
+		on oi.product_id = p.product_id
+	left join orders o
+		on oi.order_id = o.order_id
+	where o.status = 'paid'
+	group by p.name
+)
+select product_name,
+		total_revenue
+from item_revenue
+where total_revenue > (select avg(total_revenue) from item_revenue);
+
+	-- I used ChatGPT to check my answer; I missed the 'paid' filter
 
 -- Q9) Churn-ish check: list customers with their last PAID order date.
 --     If they have no PAID orders, show NULL.
 --     Hint: Put the status filter in the LEFT JOIN's ON clause to preserve non-buyer rows.
 
+select concat(c.last_name, ', ', c.first_name)as customer_name,
+		max(o.order_datetime) as last_paid_order_date
+from customers c
+left join orders o
+	on c.customer_id = o.customer_id
+    and o.status = 'paid'
+group by customer_name;
+
+	-- I'm also fairly confident about this one and am not seeing any NULL values.
+
 -- Q10) Product mix report (PAID only):
 --     For each store and category, show total units and total revenue (= SUM(quantity * products.price)).
+
+select s.name as store_name,
+		c.name as category,
+        sum(oi.quantity) as total_units,
+        sum(oi.quantity * p.price) as total_revenue
+from stores s
+left join orders o
+	on o.store_id = s.store_id
+left join order_items oi
+	on o.order_id = oi.order_id
+left join products p
+	on oi.product_id = p.product_id
+left join categories c
+	on p.category_id = c.category_id
+where o.status = 'paid'
+group by store_name, category;
