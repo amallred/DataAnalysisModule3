@@ -18,6 +18,18 @@ USE coffeeshop_db;
 -- for THAT SAME store (correlated subquery).
 -- Sort by store_name, then order_total DESC.
 
+select o.order_id as order_id,
+		concat(c.last_name, ', ' c.first_name) as customer_name,
+        s.name as store_name,
+        o.order_datetime as order_datetime,
+        order_total
+from orders o
+join customers c on c.customer_id = o.customer_id
+join stores s on s.store_id = o.store_id
+where o.status = 'paid'
+sort by store_name, order_total DESC;
+
+
 -- =========================================================
 -- Q2) CTE: Daily revenue and 3-day rolling average (PAID only)
 -- =========================================================
