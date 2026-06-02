@@ -18,17 +18,36 @@ USE coffeeshop_db;
 -- for THAT SAME store (correlated subquery).
 -- Sort by store_name, then order_total DESC.
 
+with order_total as ( -- Find each order's total
+	select s.store_id as store_id,
+			o.order_id as order_id,
+			sum(oi.quantity * p.price) as total
+	from orders o
+    join order_items oi on oi.order_id = o.order_id
+    join products p on oi.product_id = p.product_id
+    join stores s on s.store_id = o.store_id
+    where o.status = 'paid'
+    group by o.order_id
+)
+-- I originally had the avg order total per school here as a CTE and it worked. 
+-- I had to reorganize to meet the 'correlated subquery' prompt.
 select o.order_id as order_id,
-		concat(c.last_name, ', ' c.first_name) as customer_name,
+		concat(c.last_name, ', ', c.first_name) as customer_name,
         s.name as store_name,
         o.order_datetime as order_datetime,
-        order_total
+        ot.total as order_total
 from orders o
 join customers c on c.customer_id = o.customer_id
 join stores s on s.store_id = o.store_id
-where o.status = 'paid'
-sort by store_name, order_total DESC;
-
+join order_total ot on o.order_id = ot.order_id
+where ot.total > ( -- Find average order total per store
+	select avg(ot.total) as avg_total
+	from order_total ot
+    where ot.store_id = s.store_id 
+		-- ChatGPT helped me figure out how to connect this query
+        -- to the current line's store in my code reorganization
+)
+order by s.name, ot.total DESC;
 
 -- =========================================================
 -- Q2) CTE: Daily revenue and 3-day rolling average (PAID only)
@@ -41,6 +60,33 @@ sort by store_name, order_total DESC;
 -- Use a window function for the rolling average.
 -- Sort by store_name, order_date.
 
+with daily_revenue as ( -- Using a CTE, compute daily revenue per store
+	select s.store_id as store_id,
+			s.name as store_name,
+		date(o.order_datetime) as order_date,
+		sum(oi.quantity * p.price) as revenue_day
+    from orders o
+    join order_items oi on oi.order_id = o.order_id
+    join products p on p.product_id = oi.product_id
+    join stores s on o.store_id = s.store_id
+    where o.status = 'paid'
+    group by o.store_id, date(o.order_datetime)
+)
+select store_name,
+		order_date,
+		revenue_day,
+        avg(revenue_day) over (
+			partition by store_id
+            order by order_date 
+				rows between 2 preceding and current row
+		) as rolling_3day_avg
+from daily_revenue dr 
+order by store_id, order_date;
+
+-- References: https://dev.mysql.com/doc/refman/9.7/en/date-and-time-functions.html#function_month
+-- https://stackoverflow.com/questions/16121023/calculating-a-moving-average-mysql
+--  ChatGPT helped confirm the answer satisfies the question.
+
 -- =========================================================
 -- Q3) Window function: Rank customers by lifetime spend (PAID only)
 -- =========================================================
@@ -49,6 +95,27 @@ sort by store_name, order_total DESC;
 --         spend_rank (DENSE_RANK by total_spend DESC).
 -- Also include percent_of_total = customer's total_spend / total spend of all customers.
 -- Sort by total_spend DESC.
+
+with customer_total as (
+	select o.customer_id as customer_id,
+		concat(c.last_name, ', ', c.first_name) as customer_name,
+        sum(oi.quantity * p.price) as total_spend
+    from orders o
+    join customers c on c.customer_id = o.customer_id
+    join order_items oi on oi.order_id = o.order_id
+    join products p on p.product_id = oi.product_id
+	where o.status = 'paid'
+    group by customer_id
+)
+select customer_id,
+		customer_name,
+        total_spend,
+        dense_rank() over (order by total_spend desc) spend_rank,
+        total_spend / sum(total_spend) over() as percent_of_total 
+			-- I missed this line above when I checked my answer with ChatGPT
+            -- I remember one of the videos talking about an empty over()
+            -- applying to every row
+from customer_total;
 
 -- =========================================================
 -- Q4) CTE + window: Top product per store by revenue (PAID only)
